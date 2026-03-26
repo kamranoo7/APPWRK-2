@@ -219,9 +219,33 @@ export default function App() {
   const [stage,      setStage]      = useState("start");
   const [done,       setDone]       = useState(false);
   const [hasError,   setHasError]   = useState(false);
+  
+  const speakSentences = async (text) => {
+    // Split by common punctuation but keep the flow natural
+    const sentences = text.match(/[^.!?;]+[.!?;]?/g) || [text];
+    
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+      
+      await speak(trimmed);
+      // Wait 300ms between sentences to simulate a human "breath"
+      await new Promise(r => setTimeout(r, 300)); 
+    }
+  };
+  const getVoice = (lang = "hi-IN") => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.lang === lang && /google/i.test(v.name) && /neural/i.test(v.name));
+    if (preferred) return preferred;
+    return voices.find(v => v.lang === lang && /google/i.test(v.name)) || voices[0];
+  };
   const formatNumberForSpeech = (text) => {
     return text.replace(/\b\d{4,}\b/g, (num) => num.split("").join(" "));
   };
+  useEffect(() => {
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
   const chatRef  = useRef(null);
   const recRef   = useRef(null);
   const lastCall = useRef(0);
@@ -249,16 +273,30 @@ export default function App() {
     setSpeaking(true);
     window.speechSynthesis.cancel();
   
-    // ✅ Format numbers before speaking
-    const formattedText = formatNumberForSpeech(text);
-  
+    // Remove any accidental HTML/SSML tags that might be in the LLM response
+    const cleanText = text.replace(/<\/?[^>]+(>|$)/g, "");
+    
+    const formattedText = formatNumberForSpeech(cleanText);
     const u = new SpeechSynthesisUtterance(formattedText);
-    u.lang = "hi-IN";
-    u.rate = 1;
   
-    u.onend = u.onerror = () => { 
+    // 2. Select the most natural voice available
+    u.voice = getVoice("hi-IN");
+    u.lang  = "hi-IN";
+  
+    // 3. Human-like prosody settings
+    u.rate  = 0.95;       // Slightly slower than 1.0 feels more professional and clear
+    u.pitch = 1.1;        // A tiny bit higher pitch sounds more "helpful"/friendly
+    u.volume = 1;         
+  
+    u.onend = () => { 
       setSpeaking(false); 
       resolve(); 
+    };
+
+    u.onerror = (e) => {
+      console.error("Speech error:", e);
+      setSpeaking(false);
+      resolve();
     };
   
     window.speechSynthesis.speak(u);
@@ -277,7 +315,7 @@ export default function App() {
       const { reply, summary, done: isDone, ticket } = res.data;
       addMsg("bot", reply, { summary, ticket, done: isDone });
       if (isDone) setDone(true);
-      await speak(reply);
+      await speakSentences(reply);
       return isDone ? "done" : "ok";
     } catch {
       const err = "कनेक्शन में समस्या है। माइक दबाकर फिर बोलें।";

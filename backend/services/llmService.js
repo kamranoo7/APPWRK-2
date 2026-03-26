@@ -360,3 +360,33 @@ export async function processWithLLM(text, sessionData = {}) {
     return {}; // fallback handled in backend if JSON invalid
   }
 }
+
+
+
+
+// services/twilioService.js
+import twilio from "twilio";
+import 'dotenv/config';
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+export async function sendConfirmationSMS(to, message) {
+  // Clean the number (remove spaces/dashes if the LLM left them in)
+  const cleanNumber = to.replace(/\D/g, ''); 
+
+  // Twilio needs the + sign
+  const formattedNumber = cleanNumber.startsWith('91') 
+    ? `+${cleanNumber}` 
+    : `+91${cleanNumber}`;
+
+  try {
+    const sms = await client.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: formattedNumber,
+    });
+    return true;
+  } catch (err) {
+    console.error("SMS Failed. Reason:", err.message);
+    return false;
+  }
+}
