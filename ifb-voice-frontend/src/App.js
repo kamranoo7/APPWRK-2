@@ -335,10 +335,10 @@ export default function App() {
     setStage("language");
   
     // 1️⃣ Add welcome message immediately
-    addMsg("bot", "Welcome to IFB Customer Care. Please say Hindi or English.");
+    addMsg("bot", "Welcome to IFB Customer Care. Please select your preferred language: Hindi or English");
   
     // 2️⃣ Speak welcome message
-    await speak("Welcome to IFB Customer Care. Please say Hindi or English.");
+    await speak("Welcome to IFB Customer Care. Please select your preferred language: Hindi or English");
   
     // 3️⃣ Start speech recognition
     startRec();
